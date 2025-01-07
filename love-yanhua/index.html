@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>表白烟花秀</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        canvas {
+            display: block;
+        }
+        .message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 3.5em;
+            font-family: "Microsoft YaHei", sans-serif;
+            text-align: center;
+            text-shadow: 0 0 20px #ff69b4, 0 0 30px #ff69b4;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 3s;
+            z-index: 100;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <audio id="bgMusic" loop autoplay>
+        <source src="./music/3323301968.mp3" type="audio/mpeg">
+    </audio>
+    
+    <canvas id="canvas"></canvas>
+    <div id="message" class="message"></div>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const CONFIG = {
+            rocketSpawnInterval: 600,    // 发射间隔
+            maxRockets: 5,              // 同时发射数量
+            rocketSpeed: 8,             // 发射速度
+            particleCount: 150,         // 粒子数量
+            gravity: 0.05,              // 重力效果
+            fadeSpeed: 0.01            // 消失速度
+        };
+
+        const COLORS = [
+            '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', 
+            '#00ffff', '#ffa500', '#ff69b4', '#ff1493', '#ff8c00',
+            '#ff0', '#f0f', '#0ff', '#f00', '#0f0', '#00f'
+        ];
+
+        const LOVE_MESSAGES = [
+            "致我最爱的小马：",
+			"我会牵着你的手，走到满头白发的那一天",
+			"我会守护你生命里的精彩，并陪伴你一路精彩下去",
+			"我会每一晚与你道声晚安再入梦乡",
+			"我会带你去所有你想去的地方，陪你闹看你笑",
+			"你的幸福快乐，是我一生的追求",
+			"历经你生命中所有的点点滴滴",
+			"我期待这一生与你一起走过",
+			"我期待与你步入婚姻殿堂的那一刻",
+			"我期待往后余生与你慢慢变老",
+			"等我们老到哪儿也去不了",
+			"还能满载着一生的幸福快乐",
+			"我会为我们的未来撑起一片天空",
+			"为我们的将来担负起一生的责任",
+			"愿意为你去做每一件能让你开心快乐的事",
+			"所有我们经历的点点滴滴",
+			"都是我们一辈子最美的回忆",
+			"我愿意爱你直到老去",
+            "❤️"
+        ];
+
+        let particles = [];
+        let rockets = [];
+        let currentMessageIndex = 0;
+        const messageElement = document.getElementById('message');
+
+        class Rocket {
+            constructor(startX, startY, targetX, targetY) {
+                this.x = startX;
+                this.y = startY;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.trail = [];
+                
+                const angle = Math.atan2(targetY - startY, targetX - startX);
+                this.speedX = Math.cos(angle) * CONFIG.rocketSpeed;
+                this.speedY = Math.sin(angle) * CONFIG.rocketSpeed;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+
+                // 绘制尾迹
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                for (let i = 0; i < this.trail.length; i++) {
+                    const point = this.trail[i];
+                    ctx.lineTo(point.x, point.y);
+                }
+                ctx.strokeStyle = `rgba(255, 220, 110, ${0.5})`;
+                ctx.stroke();
+            }
+
+            update() {
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > 20) this.trail.shift();
+
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                return this.y > this.targetY;
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.alpha = 1;
+                
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 8 + 2;
+                this.speedX = Math.cos(angle) * speed;
+                this.speedY = Math.sin(angle) * speed;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                this.speedY += CONFIG.gravity;
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.alpha -= CONFIG.fadeSpeed;
+            }
+        }
+
+        function createFirework(x, y) {
+            const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function showMessage() {
+            if (currentMessageIndex < LOVE_MESSAGES.length) {
+                messageElement.textContent = LOVE_MESSAGES[currentMessageIndex];
+                messageElement.style.opacity = '1';
+                setTimeout(() => {
+                    messageElement.style.opacity = '0';
+                    setTimeout(() => {
+                        currentMessageIndex++;
+                        showMessage();
+                    }, 3000);
+                }, 5000);
+            } else {
+                currentMessageIndex = 0;
+                setTimeout(showMessage, 3000);
+            }
+        }
+
+        function spawnRocket() {
+            if (rockets.length < CONFIG.maxRockets) {
+                const startX = canvas.width * (Math.random() * 0.4 + 0.3);
+                const startY = canvas.height * 0.8;
+                const targetX = canvas.width * (Math.random() * 0.6 + 0.2);
+                const targetY = canvas.height * (0.1 + Math.random() * 0.3);
+                rockets.push(new Rocket(startX, startY, targetX, targetY));
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            rockets = rockets.filter(rocket => {
+                rocket.draw();
+                const active = rocket.update();
+                if (!active) {
+                    createFirework(rocket.x, rocket.y);
+                }
+                return active;
+            });
+
+            particles = particles.filter(particle => {
+                particle.draw();
+                particle.update();
+                return particle.alpha > 0;
+            });
+        }
+
+        // 点击创建烟花
+        canvas.addEventListener('click', (e) => {
+            const startX = canvas.width * (Math.random() * 0.4 + 0.3);
+            const startY = canvas.height * 0.8;
+            rockets.push(new Rocket(startX, startY, e.clientX, e.clientY));
+        });
+
+        // 自动发射烟花
+        setInterval(spawnRocket, CONFIG.rocketSpawnInterval);
+
+        // 响应窗口调整
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // 简化音乐控制逻辑
+        const bgMusic = document.getElementById('bgMusic');
+
+        // 页面加载完成后自动播放音乐
+        window.addEventListener('load', () => {
+            bgMusic.load();
+            // 添加音频加载错误处理
+            bgMusic.onerror = function() {
+                console.error('音频文件加载失败，请检查文件路径是否正确');
+            };
+            
+            // 尝试自动播放
+            bgMusic.play().catch(error => {
+                console.log("自动播放失败，尝试在用户交互时播放");
+                // 在用户第一次点击页面时尝试播放
+                document.addEventListener('click', function playHandler() {
+                    bgMusic.play();
+                    document.removeEventListener('click', playHandler);
+                }, { once: true });
+            });
+        });
+
+        // 添加页面关闭/隐藏时暂停音乐的功能
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                bgMusic.pause();
+            } else {
+                bgMusic.play().catch(error => console.log("恢复播放失败"));
+            }
+        });
+
+        // 添加页面关闭时停止音乐的功能
+        window.addEventListener('beforeunload', () => {
+            bgMusic.pause();
+        });
+
+        // 开始动画和显示文字
+        animate();
+        setTimeout(showMessage, 1000);
+
+        // 定义消息样式
+        const messageStyle = `
+            .message {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: rgba(255, 255, 255, 0.9);
+                font-size: 3.5em;
+                font-family: "Microsoft YaHei", sans-serif;
+                text-align: center;
+                text-shadow: 0 0 20px #ff69b4, 0 0 30px #ff69b4;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 3s;
+                z-index: 100;
+                white-space: nowrap;
+            }
+        `;
+
+        // 添加样式到页面
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = messageStyle;
+        document.head.appendChild(styleSheet);
+    </script>
+</body>
+</html> 
